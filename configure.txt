@@ -1,0 +1,18 @@
+# configure 执行后生成的 objs 目录的结构
+|---ngx_auto_headers.h  
+|---autoconf.err  
+|---ngx_auto_config.h  
+|---ngx_modules.c  
+|---src  
+|   |---core  
+|   |---event  
+|   |   |---modules  
+|   |---os  
+|   |   |---unix  
+|   |   |---win32  
+|   |---http  
+|   |   |---modules  
+|   |   |   |---perl  
+|   |---mail  
+|   |---misc  
+|---Makefile  

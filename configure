@@ -1,29 +1,34 @@
 #!/bin/sh
 
-# Copyright (C) Igor Sysoev
-# Copyright (C) Nginx, Inc.
-
 
 LC_ALL=C
 export LC_ALL
 
+# options 用于处理传入的参数
 . auto/options
+# init 用于初始化后续将产生的文件路径
 . auto/init
+# sources 分析源码结构以便后续生成 Makefile
 . auto/sources
 
+# 编译过程中所有的目标文件生成的路径由 --builddir=DIR 参数指定
+# 此时目录才会创建
 test -d $NGX_OBJS || mkdir -p $NGX_OBJS
 
+# 初始化 ngx_auto_config.h、auto_config.err 等编译文件
 echo > $NGX_AUTO_HEADERS_H
 echo > $NGX_AUTOCONF_ERR
 
+# 向 objs/ngx_auto_config 写入命令行写入的宏定义
 echo "#define NGX_CONFIGURE \"$NGX_CONFIGURE\"" > $NGX_AUTO_CONFIG_H
 
-
+# 如果由 DEBUG 标志，向 objs/ngx_auto_config.h 中写入 DEBUG 宏定义
 if [ $NGX_DEBUG = YES ]; then
     have=NGX_DEBUG . auto/have
 fi
 
 
+# 检查操作系统参数是否支持后续的编译
 if test -z "$NGX_PLATFORM"; then
     echo "checking for OS"
 
@@ -31,6 +36,7 @@ if test -z "$NGX_PLATFORM"; then
     NGX_RELEASE=`uname -r 2>/dev/null`
     NGX_MACHINE=`uname -m 2>/dev/null`
 
+    # 标准输出现实提示信息 OS 名称、内核版本、32 bit/64 bit
     echo " + $NGX_SYSTEM $NGX_RELEASE $NGX_MACHINE"
 
     NGX_PLATFORM="$NGX_SYSTEM:$NGX_RELEASE:$NGX_MACHINE";
@@ -46,22 +52,36 @@ else
     NGX_SYSTEM=$NGX_PLATFORM
 fi
 
+# 检查并配置编译器，如 gcc 是否安装，版本是否支持后续编译 nginx
 . auto/cc/conf
 
+# 为非 Windows 平台添加头文件
 if [ "$NGX_PLATFORM" != win32 ]; then
     . auto/headers
 fi
 
+
+# 对当前的操作系统定义一些特定操作系统相关的方法并检查操作系统是否支持
 . auto/os/conf
 
+# 定义 unix-like 操作系统的通用头文件和系统调用，并检查兼容性
 if [ "$NGX_PLATFORM" != win32 ]; then
     . auto/unix
 fi
 
+# 多线程支持
 . auto/threads
+
+# 最核心部分。构造运行期 modules 的脚本。
+# 生成 ngx_modules.c，该文件会被编译到 Nginx 中
+# 对于模块的顺序敏感 
 . auto/modules
+
+
+# 检查链接所需要的静态库是否存在
 . auto/lib/conf
 
+# 输出路径前缀
 case ".$NGX_PREFIX" in
     .)
         NGX_PREFIX=${NGX_PREFIX:-/usr/local/nginx}
@@ -77,10 +97,12 @@ case ".$NGX_PREFIX" in
     ;;
 esac
 
+# 处理 Nginx 安装后 conf 文件的路径
 if [ ".$NGX_CONF_PREFIX" != "." ]; then
     have=NGX_CONF_PREFIX value="\"$NGX_CONF_PREFIX/\"" . auto/define
 fi
 
+# 处理 Nginx 安装后，二进制文件、pid、lock 等其他文件的路径
 have=NGX_SBIN_PATH value="\"$NGX_SBIN_PATH\"" . auto/define
 have=NGX_CONF_PATH value="\"$NGX_CONF_PATH\"" . auto/define
 have=NGX_PID_PATH value="\"$NGX_PID_PATH\"" . auto/define
@@ -99,18 +121,29 @@ have=NGX_HTTP_UWSGI_TEMP_PATH value="\"$NGX_HTTP_UWSGI_TEMP_PATH\""
 have=NGX_HTTP_SCGI_TEMP_PATH value="\"$NGX_HTTP_SCGI_TEMP_PATH\""
 . auto/define
 
+# 创建编译时使用的 objs/Makefile 文件
 . auto/make
+
+# 加入需要连接的第三方静态库、动态库或者目标文件
 . auto/lib/make
+
+# 为 objs/Makefile 加入 install 功能
+# 当执行 make install 时编译成的必要文件复制到安装目录
 . auto/install
 
-# STUB
+# 在 ngx_auto_config.h 文件中加入 NGX_SUPPRESS_WARN 和 NGX_SMP 宏
 . auto/stubs
 
+
+# 在 ngx_auto_config.h 文件中指定 NGX_USER 和 NGX_GROUP 宏
+# 如果执行 configure 时没有参数指定，默认两者都是 nobody
 have=NGX_USER value="\"$NGX_USER\"" . auto/define
 have=NGX_GROUP value="\"$NGX_GROUP\"" . auto/define
+
 
 if [ ".$NGX_BUILD" != "." ]; then
     have=NGX_BUILD value="\"$NGX_BUILD\"" . auto/define
 fi
 
+# 输出结果
 . auto/summary
